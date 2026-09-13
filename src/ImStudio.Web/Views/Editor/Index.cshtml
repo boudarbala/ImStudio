@@ -1,0 +1,45 @@
+@model ImStudio.Web.Models.Layout
+@{
+    ViewData["Title"] = "ImStudio Editor";
+}
+
+<div class="toolbar">
+    <h1>ImStudio</h1>
+    <button id="addButton" type="button">+ Button</button>
+    <button id="exportButton" type="button">Export JSON</button>
+</div>
+
+<div id="canvas" class="canvas" style="width:@(Model.Width)px;height:@(Model.Height)px">
+    @foreach (var obj in Model.Objects)
+    {
+        <div class="ui-object" data-id="@obj.Id" data-type="@obj.Type"
+             style="left:@(obj.X)px;top:@(obj.Y)px;width:@(obj.Width)px;height:@(obj.Height)px">
+            @obj.Label
+        </div>
+    }
+</div>
+
+<script>
+const layout = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model));
+const canvas = document.getElementById('canvas');
+
+document.getElementById('addButton').onclick = () => {
+    const el = document.createElement('div');
+    el.className = 'ui-object';
+    el.textContent = 'Button';
+    el.style.left = '40px';
+    el.style.top = '160px';
+    el.style.width = '120px';
+    el.style.height = '32px';
+    canvas.appendChild(el);
+};
+
+document.getElementById('exportButton').onclick = () => {
+    const blob = new Blob([JSON.stringify(layout, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'layout.json';
+    a.click();
+    URL.revokeObjectURL(a.href);
+};
+</script>
