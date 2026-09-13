@@ -18,6 +18,8 @@ ImStudio is a real-time GUI layout creator/editor for Dear ImGui. The project is
 
 The migration is maintained on the `dotnet-mvc` branch while the original C++ implementation remains on `main` for feature comparison.
 
+The web architecture is also becoming a foundation for a **Legal Graph workspace**: a source-grounded environment for modelling laws, articles, cases, concepts and legal relations as a knowledge graph.
+
 ## Existing editor capabilities
 
 - Drag edit
@@ -37,7 +39,9 @@ src/ImStudio.Web/
 │   └── EditorController.cs
 ├── Models/
 │   ├── Layout.cs
-│   └── UiObject.cs
+│   ├── UiObject.cs
+│   ├── LegalNode.cs
+│   └── LegalRelation.cs
 ├── Services/
 │   ├── ILayoutService.cs
 │   └── LayoutService.cs
@@ -56,11 +60,44 @@ src/ImStudio.Web/
 
 | Layer | Responsibility |
 |---|---|
-| Models | Layout and UI-object data |
+| Models | UI layouts and legal graph domain objects |
 | Controllers | HTTP/MVC endpoints and orchestration |
 | Services | Layout creation and future persistence/generation |
-| Views | Editor interface and HTML rendering |
+| Views | Editor interface and future legal graph workspace |
 | wwwroot | CSS and client-side assets |
+
+## Legal Graph foundation
+
+The first legal-domain models are now included on `dotnet-mvc`:
+
+- `LegalNode` — law, article, case, concept, jurisdiction, offence, sanction, etc.
+- `LegalRelation` — directed typed relationships such as `REFERS_TO`, `AMENDS`, `REPEALS`, `CONCERNS` and `INTERPRETED_BY`.
+- Source metadata is retained through identifiers, language, source and source text fields.
+
+See [`docs/LEGAL-GRAPH.md`](docs/LEGAL-GRAPH.md) for the architecture and roadmap.
+
+The planned pipeline is:
+
+```text
+PDF / HTML / XML
+       ↓
+   Ingestion
+       ↓
+ Normalization
+       ↓
+ Legal Knowledge Graph
+       ↓
+ ┌─────┼─────┐
+ ▼     ▼     ▼
+BM25 Vector Graph
+ └─────┼─────┘
+       ↓
+    Legal RAG
+       ↓
+Source-grounded answer
+```
+
+The design targets French and Arabic legal content and keeps provenance/version information so that generated answers can remain linked to their underlying legal sources.
 
 ## Requirements
 
@@ -97,6 +134,7 @@ The branch currently provides:
 
 - ASP.NET Core MVC / .NET 8 project
 - Layout and UI-object domain models
+- Initial legal graph node and relation models
 - MVC editor controller
 - Service layer
 - Visual canvas
@@ -115,12 +153,18 @@ The branch currently provides:
 5. JSON import/export
 6. HTML/CSS/JavaScript generation
 7. Dear ImGui C++ code generation
-8. SQLite/SQL Server persistence with EF Core
-9. Authentication and project management
-10. Docker packaging
-11. Azure App Service / Linux VM deployment
-12. Feature parity with the native editor
-13. Retire the legacy C++ web workflow after parity
+8. Legal document ingestion (PDF/HTML/XML)
+9. Legal ontology and typed relation vocabulary
+10. Graph persistence with Neo4j or another graph database
+11. Keyword + vector + graph retrieval
+12. Source-grounded Legal RAG / GraphRAG
+13. Interactive legal graph visualization
+14. SQLite/SQL Server persistence with EF Core
+15. Authentication and project management
+16. Docker packaging
+17. Azure App Service / Linux VM deployment
+18. Feature parity with the native editor
+19. Retire the legacy C++ web workflow after parity
 
 ## Deployment
 
