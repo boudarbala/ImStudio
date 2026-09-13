@@ -6,28 +6,102 @@ on:
   pull_request:
     branches: [ dotnet-mvc ]
   workflow_dispatch:
+    inputs:
+      configuration:
+        description: .NET build configuration
+        required: true
+        default: Release
+        type: choice
+        options:
+          - Release
+          - Debug
+      artifact_retention_days:
+        description: Number of days to retain the published artifact
+        required: true
+        default: '14'
+        type: string
+
+env:
+  DOTNET_VERSION: 8.0.x
+  PROJECT_PATH: src/ImStudio.Web/ImStudio.Web.csproj
+  PUBLISH_DIR: ./publish
+  BUILD_CONFIGURATION: ${{ inputs.configuration || 'Release' }}
 
 permissions:
   contents: read
 
+concurrency:
+  group: dotnet-mvc-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
+    name: Build and publish ASP.NET Core MVC
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 8.0.x
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+          cache: true
+          cache-dependency-path: src/ImStudio.Web/ImStudio.Web.csproj
+
+      - name: Display environment
+        run: |
+          dotnet --info
+          echo "Configuration: ${{ env.BUILD_CONFIGURATION }}"
+          echo "Project: ${{ env.PROJECT_PATH }}"
+          echo "Commit: ${{ github.sha }}"
+
       - name: Restore
-        run: dotnet restore src/ImStudio.Web/ImStudio.Web.csproj
+        run: dotnet restore "${{ env.PROJECT_PATH }}"
+
       - name: Build
-        run: dotnet build src/ImStudio.Web/ImStudio.Web.csproj --configuration Release --no-restore
+        run: dotnet build "${{ env.PROJECT_PATH }}" --configuration "${{ env.BUILD_CONFIGURATION }}" --no-restore --nologo
+
       - name: Publish
-        run: dotnet publish src/ImStudio.Web/ImStudio.Web.csproj --configuration Release --no-build --output ./publish
-      - name: Upload artifact
+        run: dotnet publish "${{ env.PROJECT_PATH }}" --configuration "${{ env.BUILD_CONFIGURATION }}" --no-build --output "${{ env.PUBLISH_DIR }}" --nologo
+
+      - name: Create deployment manifest
+        shell: bash
+        run: |
+          cat > "${{ env.PUBLISH_DIR }}/build-manifest.txt" <<EOF
+          Application=ImStudio.Web
+          TargetFramework=net8.0
+          Configuration=${{ env.BUILD_CONFIGURATION }}
+          Branch=${{ github.ref_name }}
+          Commit=${{ github.sha }}
+          Run=${{ github.run_id }}
+          RunAttempt=${{ github.run_attempt }}
+          BuiltAt=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          EOF
+
+      - name: Upload published artifact
         uses: actions/upload-artifact@v4
         with:
           name: imstudio-dotnet-mvc
-          path: ./publish
+          path: ${{ env.PUBLISH_DIR }}
+          if-no-files-found: error
+          retention-days: ${{ inputs.artifact_retention_days || 14 }}
+          compression-level: 9
+
+      - name: Write job summary
+        run: |
+          {
+            echo "## ImStudio ASP.NET Core MVC"
+            echo ""
+            echo "| Setting | Value |"
+            echo "|---|---|"
+            echo "| Configuration | \\`${{ env.BUILD_CONFIGURATION }}\\` |"
+            echo "| Target framework | \\`net8.0\\` |"
+            echo "| Branch | \\`${{ github.ref_name }}\\` |"
+            echo "| Commit | \\`${{ github.sha }}\\` |"
+            echo "| Artifact | \\`imstudio-dotnet-mvc\\` |"
+            echo ""
+            echo "Build and publish completed successfully."
+          } >> "$GITHUB_STEP_SUMMARY"
